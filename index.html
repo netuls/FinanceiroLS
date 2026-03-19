@@ -16,7 +16,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <style>
-    /* === ESTILOS GLOBAIS (mantidos do original) === */
+    /* === ESTILOS GLOBAIS === */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --bg-primary:     #ffffff;
@@ -139,7 +139,7 @@
     .toast.error { background: #A32D2D; }
     .toast.show  { opacity: 1; transform: translateY(0); }
 
-    /* === NOVO LOGIN PROFISSIONAL === */
+    /* === LOGIN PROFISSIONAL === */
     #login-screen {
       display: flex;
       align-items: center;
@@ -595,6 +595,7 @@
   let tabAtual = 'dashboard';
   let charts = {};
   let currentUser = null;
+  let saldoAtual = 0; // será carregado do Firestore
 
   // Elementos da UI
   const loginScreen = document.getElementById('login-screen');
@@ -611,6 +612,24 @@
     t.textContent = msg;
     t.className = 'toast' + (isError?' error':'') + ' show';
     setTimeout(()=>t.className='toast', 2800);
+  }
+
+  // Atualiza o display do saldo e a variável global
+  function atualizarDisplaySaldo() {
+    saldoAtualDisplay.textContent = fmt(saldoAtual);
+  }
+
+  // Salva o saldo no Firestore
+  async function salvarSaldoNoFirestore(novoSaldo) {
+    if (!currentUser) return;
+    try {
+      await setDoc(doc(db, 'saldos', currentUser.uid), { valor: novoSaldo }, { merge: true });
+      saldoAtual = novoSaldo;
+      atualizarDisplaySaldo();
+    } catch (e) {
+      showToast('Erro ao salvar saldo: ' + e.message, true);
+      throw e;
+    }
   }
 
   // Autenticação
@@ -668,19 +687,19 @@
     try {
       const docSnap = await getDoc(saldoRef(currentUser.uid));
       if (docSnap.exists()) {
-        window.saldoAtual = docSnap.data().valor || 0;
+        saldoAtual = docSnap.data().valor || 0;
       } else {
-        window.saldoAtual = 0;
+        saldoAtual = 0;
         await setDoc(saldoRef(currentUser.uid), { valor: 0 });
       }
-      saldoAtualDisplay.textContent = fmt(window.saldoAtual);
+      atualizarDisplaySaldo();
     } catch (e) {
       showToast('Erro ao carregar saldo: ' + e.message, true);
     }
   }
 
   window.abrirModalSaldo = () => {
-    document.getElementById('saldoInput').value = window.saldoAtual || 0;
+    document.getElementById('saldoInput').value = saldoAtual;
     document.getElementById('modalSaldo').classList.add('open');
   };
   window.fecharModalSaldo = () => document.getElementById('modalSaldo').classList.remove('open');
@@ -689,9 +708,7 @@
     if (!currentUser) return;
     try {
       showLoader(true);
-      await setDoc(saldoRef(currentUser.uid), { valor }, { merge: true });
-      window.saldoAtual = valor;
-      saldoAtualDisplay.textContent = fmt(valor);
+      await salvarSaldoNoFirestore(valor);
       fecharModalSaldo();
       showToast('Saldo atualizado!');
     } catch (e) {
@@ -711,6 +728,7 @@
       window._contas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderAll();
     } catch (e) {
+      console.error("Erro no carregarContas:", e);
       showToast("Erro ao carregar: " + e.message, true);
     } finally {
       showLoader(false);
@@ -735,6 +753,7 @@
 
   async function excluirConta(id) {
     if (!currentUser) throw new Error('Usuário não autenticado');
+    // Opcional: reverter saldo se a conta estiver paga? Por simplicidade, não faremos.
     await deleteDoc(doc(db, "contas", id));
     window._contas = window._contas.filter(c => c.id !== id);
     renderAll();
@@ -871,16 +890,44 @@
     let html = `<thead><tr><th>Descrição</th><th>Categoria</th><th>Vencimento</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead><tbody>`;
     f.forEach(c => {
       const b = c.status === 'Pago' ? 'badge-pago' : c.status === 'Vencido' ? 'badge-vencido' : 'badge-pendente';
-      html += `<tr><td style="font-weight:500">${c.desc}</td><td style="color:var(--text-secondary)">${c.cat}</td><td style="color:var(--text-secondary)">${fmtData(c.venc)}</td><td style="font-weight:600;font-variant-numeric:tabular-nums">${fmt(c.valor)}</td><td><span class="badge ${b}">${c.status}</span></td><td style="display:flex;gap:6px;flex-wrap:wrap;">${c.status !== 'Pago' ? `<button class="btn btn-sm" onclick="marcarPago('${c.id}')">${labelAcao}</button>` : ''}<button class="btn btn-sm" onclick="editarConta('${c.id}')">Editar</button><button class="btn btn-sm btn-danger" onclick="confirmarExclusao('${c.id}')">Excluir</button></td></tr>`;
+      const acoes = [];
+      if (c.status !== 'Pago') {
+        acoes.push(`<button class="btn btn-sm" onclick="marcarPago('${c.id}')">${labelAcao}</button>`);
+      }
+      // Desabilita edição se já estiver pago (para evitar inconsistências)
+      if (c.status !== 'Pago') {
+        acoes.push(`<button class="btn btn-sm" onclick="editarConta('${c.id}')">Editar</button>`);
+      }
+      acoes.push(`<button class="btn btn-sm btn-danger" onclick="confirmarExclusao('${c.id}')">Excluir</button>`);
+      html += `<tr><td style="font-weight:500">${c.desc}</td><td style="color:var(--text-secondary)">${c.cat}</td><td style="color:var(--text-secondary)">${fmtData(c.venc)}</td><td style="font-weight:600;font-variant-numeric:tabular-nums">${fmt(c.valor)}</td><td><span class="badge ${b}">${c.status}</span></td><td style="display:flex;gap:6px;flex-wrap:wrap;">${acoes.join('')}</td></tr>`;
     });
     document.getElementById(tableId).innerHTML = html + '</tbody>';
   }
 
+  // Função para marcar como pago/recebido e atualizar saldo
   window.marcarPago = async (id) => {
+    const conta = window._contas.find(c => c.id === id);
+    if (!conta) return;
+    if (conta.status === 'Pago') {
+      showToast('Esta conta já está paga.', true);
+      return;
+    }
     try {
       showLoader(true);
+      // Atualizar status no Firestore
       await window._db.atualizarConta(id, { status: 'Pago' });
-      showToast('Marcado como pago!');
+      
+      // Atualizar saldo
+      const valor = Number(conta.valor);
+      let novoSaldo = saldoAtual;
+      if (conta.tipo === 'pagar') {
+        novoSaldo -= valor;
+      } else { // receber
+        novoSaldo += valor;
+      }
+      await salvarSaldoNoFirestore(novoSaldo);
+      
+      showToast('Conta marcada como paga e saldo atualizado!');
     } catch (e) {
       showToast('Erro: ' + e.message, true);
     } finally {
@@ -906,6 +953,11 @@
   window.editarConta = (id) => {
     const c = window._contas.find(x => x.id === id);
     if (!c) return;
+    // Impedir edição de conta paga
+    if (c.status === 'Pago') {
+      showToast('Contas pagas não podem ser editadas.', true);
+      return;
+    }
     document.getElementById('modalTitulo').textContent = 'Editar Conta';
     document.getElementById('fId').value = c.id;
     document.getElementById('fTipo').value = c.tipo;
@@ -944,6 +996,7 @@
     try {
       showLoader(true);
       if (id) {
+        // Se for edição, verificar se a conta está paga (já feito no editar)
         await window._db.atualizarConta(id, { tipo, desc, cat, valor, venc, status });
         showToast('Conta atualizada!');
       } else {
