@@ -1,217 +1,231 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NetoLS Finance</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetoLS Finance PRO</title>
 
-  <!-- PWA -->
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0a0a0a">
+<!-- CHART -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <style>
-    body {
-      font-family: Arial;
-      background: #0a0a0a;
-      color: #fff;
-      margin: 0;
-    }
+<style>
+body {
+  margin: 0;
+  font-family: 'Segoe UI';
+  background: #0f172a;
+  color: #fff;
+}
 
-    .container {
-      padding: 20px;
-      max-width: 400px;
-      margin: auto;
-    }
+.container {
+  max-width: 420px;
+  margin: auto;
+  padding: 20px;
+}
 
-    input, select, button {
-      width: 100%;
-      padding: 12px;
-      margin: 6px 0;
-      border-radius: 8px;
-      border: none;
-      font-size: 14px;
-    }
+.card {
+  background: #1e293b;
+  padding: 20px;
+  border-radius: 16px;
+  margin-bottom: 15px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.3);
+}
 
-    button {
-      background: #00c853;
-      color: #fff;
-      font-weight: bold;
-      cursor: pointer;
-    }
+input, select, button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 8px;
+  border-radius: 10px;
+  border: none;
+}
 
-    .hidden {
-      display: none;
-    }
+button {
+  background: linear-gradient(45deg,#22c55e,#16a34a);
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
 
-    .metric {
-      background: #1a1a1a;
-      padding: 15px;
-      border-radius: 10px;
-      margin-top: 10px;
-    }
+.hidden { display:none; }
 
-    .green { color: #00e676; }
-    .red { color: #ff5252; }
-    .blue { color: #40c4ff; }
-  </style>
+.metric {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.green { color:#4ade80 }
+.red { color:#f87171 }
+.blue { color:#60a5fa }
+
+h2 { text-align:center }
+</style>
 </head>
 
 <body>
 
 <!-- LOGIN -->
 <div class="container" id="loginBox">
-  <h2>Login</h2>
-  <input id="user" placeholder="Usuário">
-  <input id="pass" type="password" placeholder="Senha">
-  <button onclick="login()">Entrar</button>
-  <button onclick="abrirRegistro()">Criar conta</button>
+  <div class="card">
+    <h2>Login</h2>
+    <input id="user" placeholder="Usuário">
+    <input id="pass" type="password" placeholder="Senha">
+    <button onclick="login()">Entrar</button>
+    <button onclick="abrirRegistro()">Criar conta</button>
+  </div>
 </div>
 
 <!-- REGISTRO -->
 <div class="container hidden" id="registerBox">
-  <h2>Criar Conta</h2>
-  <input id="newUser" placeholder="Novo usuário">
-  <input id="newPass" type="password" placeholder="Nova senha">
-  <button onclick="registrar()">Cadastrar</button>
-  <button onclick="voltarLogin()">Voltar</button>
+  <div class="card">
+    <h2>Cadastrar</h2>
+    <input id="newUser">
+    <input id="newPass" type="password">
+    <button onclick="registrar()">Cadastrar</button>
+    <button onclick="voltarLogin()">Voltar</button>
+  </div>
 </div>
 
 <!-- APP -->
 <div class="container hidden" id="appScreen">
-  <h2>NetoLS Finance</h2>
 
-  <input id="valor" type="number" placeholder="Valor">
+  <div class="card">
+    <h2>Dashboard</h2>
 
-  <select id="tipo">
-    <option value="receber">Receber</option>
-    <option value="pagar">Pagar</option>
-  </select>
+    <input type="date" id="dataInicio">
+    <input type="date" id="dataFim">
 
-  <button onclick="add()">Adicionar</button>
+    <button onclick="filtrar()">Filtrar</button>
+  </div>
 
-  <div id="metrics"></div>
+  <div class="card">
+    <input id="valor" type="number" placeholder="Valor">
+    <input id="descricao" placeholder="Descrição">
+    <input id="data" type="date">
+    <select id="tipo">
+      <option value="receber">Receita</option>
+      <option value="pagar">Despesa</option>
+    </select>
+    <button onclick="add()">Adicionar</button>
+  </div>
+
+  <div class="card">
+    <div class="metric">Receitas <span class="green" id="receitas"></span></div>
+    <div class="metric">Despesas <span class="red" id="despesas"></span></div>
+    <div class="metric">Saldo <span class="blue" id="saldo"></span></div>
+  </div>
+
+  <div class="card">
+    <canvas id="grafico"></canvas>
+  </div>
 
   <button onclick="logout()">Sair</button>
 </div>
 
 <script>
-let dados = JSON.parse(localStorage.getItem("dados")) || [];
 let usuarios = JSON.parse(localStorage.getItem("usuarios")) || [];
+let dados = JSON.parse(localStorage.getItem("dados")) || [];
 let usuarioLogado = localStorage.getItem("usuarioLogado");
+let chart;
 
 // AUTO LOGIN
-if (usuarioLogado) {
-  document.getElementById("loginBox").classList.add("hidden");
-  document.getElementById("appScreen").classList.remove("hidden");
-  render();
-}
-
-// ABRIR REGISTRO
-function abrirRegistro() {
-  document.getElementById("loginBox").classList.add("hidden");
-  document.getElementById("registerBox").classList.remove("hidden");
-}
-
-// VOLTAR LOGIN
-function voltarLogin() {
-  document.getElementById("registerBox").classList.add("hidden");
-  document.getElementById("loginBox").classList.remove("hidden");
-}
-
-// REGISTRAR
-function registrar() {
-  const user = document.getElementById("newUser").value;
-  const pass = document.getElementById("newPass").value;
-
-  if (!user || !pass) {
-    alert("Preencha tudo");
-    return;
-  }
-
-  if (usuarios.find(u => u.user === user)) {
-    alert("Usuário já existe");
-    return;
-  }
-
-  usuarios.push({ user, pass });
-  localStorage.setItem("usuarios", JSON.stringify(usuarios));
-
-  alert("Conta criada!");
-  voltarLogin();
+if(usuarioLogado){
+  loginSucesso();
 }
 
 // LOGIN
-function login() {
-  const u = document.getElementById("user").value;
-  const p = document.getElementById("pass").value;
+function login(){
+  const u = user.value;
+  const p = pass.value;
 
-  const encontrado = usuarios.find(user => user.user === u && user.pass === p);
+  const ok = usuarios.find(x=>x.user===u && x.pass===p);
+  if(ok){
+    localStorage.setItem("usuarioLogado",u);
+    loginSucesso();
+  } else alert("Erro");
+}
 
-  if (encontrado) {
-    localStorage.setItem("usuarioLogado", u);
+// REGISTRO
+function registrar(){
+  usuarios.push({user:newUser.value, pass:newPass.value});
+  localStorage.setItem("usuarios", JSON.stringify(usuarios));
+  alert("Criado!");
+  voltarLogin();
+}
 
-    document.getElementById("loginBox").classList.add("hidden");
-    document.getElementById("appScreen").classList.remove("hidden");
+// TROCAS
+function abrirRegistro(){
+  loginBox.classList.add("hidden");
+  registerBox.classList.remove("hidden");
+}
 
-    render();
-  } else {
-    alert("Usuário ou senha inválidos");
-  }
+function voltarLogin(){
+  registerBox.classList.add("hidden");
+  loginBox.classList.remove("hidden");
+}
+
+function loginSucesso(){
+  loginBox.classList.add("hidden");
+  appScreen.classList.remove("hidden");
+  render();
 }
 
 // LOGOUT
-function logout() {
+function logout(){
   localStorage.removeItem("usuarioLogado");
   location.reload();
 }
 
-// ADICIONAR
-function add() {
-  const valor = document.getElementById("valor").value;
-  const tipo = document.getElementById("tipo").value;
-
-  if (!valor) return alert("Digite um valor");
-
+// ADD
+function add(){
   dados.push({
-    valor: Number(valor),
-    tipo,
-    user: usuarioLogado
+    user:usuarioLogado,
+    valor:Number(valor.value),
+    tipo:tipo.value,
+    data:data.value,
+    desc:descricao.value
   });
-
-  localStorage.setItem("dados", JSON.stringify(dados));
-
+  salvar();
   render();
 }
 
-// RENDER
-function render() {
-  const userDados = dados.filter(d => d.user === usuarioLogado);
-
-  const receber = userDados.filter(d => d.tipo === "receber");
-  const pagar = userDados.filter(d => d.tipo === "pagar");
-
-  const totalReceber = receber.reduce((s, d) => s + d.valor, 0);
-  const totalPagar = pagar.reduce((s, d) => s + d.valor, 0);
-  const saldo = totalReceber - totalPagar;
-
-  document.getElementById("metrics").innerHTML = `
-    <div class="metric">
-      Receber: <span class="green">R$ ${totalReceber}</span>
-    </div>
-
-    <div class="metric">
-      Pagar: <span class="red">R$ ${totalPagar}</span>
-    </div>
-
-    <div class="metric">
-      Saldo: <span class="${saldo >= 0 ? 'blue' : 'red'}">R$ ${saldo}</span>
-    </div>
-  `;
+// FILTRO
+function filtrar(){
+  render(dataInicio.value, dataFim.value);
 }
 
-// SERVICE WORKER
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js");
+// RENDER
+function render(inicio, fim){
+  let lista = dados.filter(d=>d.user===usuarioLogado);
+
+  if(inicio && fim){
+    lista = lista.filter(d=> d.data >= inicio && d.data <= fim);
+  }
+
+  const receitas = lista.filter(d=>d.tipo==="receber").reduce((s,d)=>s+d.valor,0);
+  const despesas = lista.filter(d=>d.tipo==="pagar").reduce((s,d)=>s+d.valor,0);
+
+  receitasEl.innerText = "R$ " + receitas;
+  despesasEl.innerText = "R$ " + despesas;
+  saldoEl.innerText = "R$ " + (receitas-despesas);
+
+  // GRAFICO
+  if(chart) chart.destroy();
+
+  chart = new Chart(grafico, {
+    type:'doughnut',
+    data:{
+      labels:["Receitas","Despesas"],
+      datasets:[{
+        data:[receitas,despesas],
+        backgroundColor:["#22c55e","#ef4444"]
+      }]
+    }
+  });
+}
+
+// SALVAR
+function salvar(){
+  localStorage.setItem("dados", JSON.stringify(dados));
 }
 </script>
 
