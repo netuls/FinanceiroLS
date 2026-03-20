@@ -1,7 +1,7 @@
 {
-  "name": "FinanceApp",
+  "name": "NetoLS Finance",
   "short_name": "Finance",
-  "start_url": ".",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#0a0a0a",
   "theme_color": "#0a0a0a",
