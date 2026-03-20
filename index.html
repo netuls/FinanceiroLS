@@ -3,13 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <title>NetoLS Finance</title>
-
-  <!-- PWA -->
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0a0a0a">
-  <link rel="apple-touch-icon" href="icon-192.png">
 
   <style>
     body {
@@ -57,18 +51,30 @@
 
 <body>
 
-<div class="container" id="loginScreen">
+<!-- LOGIN -->
+<div class="container" id="loginBox">
   <h2>Login</h2>
   <input id="user" placeholder="Usuário">
   <input id="pass" type="password" placeholder="Senha">
   <button onclick="login()">Entrar</button>
+  <button onclick="abrirRegistro()">Criar conta</button>
 </div>
 
+<!-- REGISTRO -->
+<div class="container hidden" id="registerBox">
+  <h2>Criar Conta</h2>
+  <input id="newUser" placeholder="Novo usuário">
+  <input id="newPass" type="password" placeholder="Nova senha">
+  <button onclick="registrar()">Cadastrar</button>
+  <button onclick="voltarLogin()">Voltar</button>
+</div>
+
+<!-- APP -->
 <div class="container hidden" id="appScreen">
   <h2>NetoLS Finance</h2>
 
   <input id="valor" type="number" placeholder="Valor">
-  
+
   <select id="tipo">
     <option value="receber">Receber</option>
     <option value="pagar">Pagar</option>
@@ -83,24 +89,66 @@
 
 <script>
 let dados = [];
+let usuarios = JSON.parse(localStorage.getItem("usuarios")) || [];
 
+// ABRIR REGISTRO
+function abrirRegistro() {
+  document.getElementById("loginBox").classList.add("hidden");
+  document.getElementById("registerBox").classList.remove("hidden");
+}
+
+// VOLTAR LOGIN
+function voltarLogin() {
+  document.getElementById("registerBox").classList.add("hidden");
+  document.getElementById("loginBox").classList.remove("hidden");
+}
+
+// REGISTRAR
+function registrar() {
+  const user = document.getElementById("newUser").value;
+  const pass = document.getElementById("newPass").value;
+
+  if (!user || !pass) {
+    alert("Preencha tudo");
+    return;
+  }
+
+  const existe = usuarios.find(u => u.user === user);
+
+  if (existe) {
+    alert("Usuário já existe");
+    return;
+  }
+
+  usuarios.push({ user, pass });
+  localStorage.setItem("usuarios", JSON.stringify(usuarios));
+
+  alert("Conta criada!");
+  voltarLogin();
+}
+
+// LOGIN
 function login() {
   const u = document.getElementById("user").value;
   const p = document.getElementById("pass").value;
 
-  if (u === "admin" && p === "123") {
-    document.getElementById("loginScreen").classList.add("hidden");
+  const encontrado = usuarios.find(user => user.user === u && user.pass === p);
+
+  if (encontrado) {
+    document.getElementById("loginBox").classList.add("hidden");
     document.getElementById("appScreen").classList.remove("hidden");
     render();
   } else {
-    alert("Login inválido");
+    alert("Usuário ou senha inválidos");
   }
 }
 
+// LOGOUT
 function logout() {
   location.reload();
 }
 
+// ADICIONAR DADOS
 function add() {
   const valor = document.getElementById("valor").value;
   const tipo = document.getElementById("tipo").value;
@@ -115,6 +163,7 @@ function add() {
   render();
 }
 
+// DASHBOARD
 function render() {
   const receber = dados.filter(d => d.tipo === "receber");
   const pagar = dados.filter(d => d.tipo === "pagar");
@@ -136,13 +185,6 @@ function render() {
       Saldo: <span class="${saldo >= 0 ? 'blue' : 'red'}">R$ ${saldo}</span>
     </div>
   `;
-}
-</script>
-
-<!-- Service Worker -->
-<script>
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js");
 }
 </script>
 
