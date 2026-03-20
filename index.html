@@ -2,115 +2,148 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- MOBILE -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
-  <title>FinanceApp</title>
+  <title>NetoLS Finance</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0a0a0a">
   <link rel="apple-touch-icon" href="icon-192.png">
 
-  <!-- ESTILO -->
   <style>
     body {
-      margin: 0;
       font-family: Arial;
       background: #0a0a0a;
-      color: white;
-      -webkit-user-select: none;
-      user-select: none;
-    }
-
-    * {
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    header {
-      padding: 20px;
-      text-align: center;
-      font-size: 22px;
-      font-weight: bold;
+      color: #fff;
+      margin: 0;
     }
 
     .container {
       padding: 20px;
     }
 
-    button {
+    input, button {
       width: 100%;
       padding: 12px;
-      margin-top: 10px;
-      border: none;
+      margin: 5px 0;
       border-radius: 8px;
+      border: none;
+    }
+
+    button {
       background: #00c853;
-      color: white;
-      font-size: 16px;
+      color: #fff;
+      font-weight: bold;
       cursor: pointer;
     }
 
-    /* Splash */
-    #splash {
-      position: fixed;
-      inset: 0;
-      background: #0a0a0a;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-      font-size: 22px;
+    .hidden {
+      display: none;
     }
+
+    .metric {
+      background: #1a1a1a;
+      padding: 15px;
+      border-radius: 10px;
+      margin: 10px 0;
+    }
+
+    .green { color: #00e676; }
+    .red { color: #ff5252; }
+    .blue { color: #40c4ff; }
   </style>
 </head>
 
 <body>
 
-<!-- Splash -->
-<div id="splash">FinanceApp</div>
-
-<header>💰 FinanceApp</header>
-
-<div class="container">
-  <button onclick="alert('Funcionando!')">Testar</button>
+<div class="container" id="loginScreen">
+  <h2>Login</h2>
+  <input id="user" placeholder="Usuário">
+  <input id="pass" type="password" placeholder="Senha">
+  <button onclick="login()">Entrar</button>
 </div>
 
-<!-- Botão instalar -->
-<button id="btnInstall" style="position:fixed;bottom:20px;left:20px;display:none;">
-  Instalar App
-</button>
+<div class="container hidden" id="appScreen">
+  <h2>NetoLS Finance</h2>
+
+  <input id="valor" type="number" placeholder="Valor">
+  
+  <select id="tipo">
+    <option value="receber">Receber</option>
+    <option value="pagar">Pagar</option>
+  </select>
+
+  <button onclick="add()">Adicionar</button>
+
+  <div id="metrics"></div>
+
+  <button onclick="logout()">Sair</button>
+</div>
 
 <script>
-/* Splash */
-window.addEventListener("load", () => {
-  setTimeout(() => {
-    document.getElementById("splash").style.display = "none";
-  }, 800);
-});
+let dados = [];
 
-/* Service Worker */
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js");
-  });
+function login() {
+  const u = document.getElementById("user").value;
+  const p = document.getElementById("pass").value;
+
+  if (u === "admin" && p === "123") {
+    document.getElementById("loginScreen").classList.add("hidden");
+    document.getElementById("appScreen").classList.remove("hidden");
+    render();
+  } else {
+    alert("Login inválido");
+  }
 }
 
-/* Instalar App */
-let deferredPrompt;
+function logout() {
+  location.reload();
+}
 
-window.addEventListener("beforeinstallprompt", (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  document.getElementById("btnInstall").style.display = "block";
-});
+function add() {
+  const valor = document.getElementById("valor").value;
+  const tipo = document.getElementById("tipo").value;
 
-document.getElementById("btnInstall").addEventListener("click", async () => {
-  if (deferredPrompt) {
-    deferredPrompt.prompt();
-    deferredPrompt = null;
-  }
-});
+  if (!valor) return alert("Digite um valor");
+
+  dados.push({
+    valor: Number(valor),
+    tipo
+  });
+
+  render();
+}
+
+function render() {
+  const receber = dados.filter(d => d.tipo === "receber");
+  const pagar = dados.filter(d => d.tipo === "pagar");
+
+  const totalReceber = receber.reduce((s, d) => s + d.valor, 0);
+  const totalPagar = pagar.reduce((s, d) => s + d.valor, 0);
+  const saldo = totalReceber - totalPagar;
+
+  document.getElementById("metrics").innerHTML = `
+    <div class="metric">
+      Receber: <span class="green">R$ ${totalReceber}</span>
+    </div>
+
+    <div class="metric">
+      Pagar: <span class="red">R$ ${totalPagar}</span>
+    </div>
+
+    <div class="metric">
+      Saldo: <span class="${saldo >= 0 ? 'blue' : 'red'}">R$ ${saldo}</span>
+    </div>
+  `;
+}
+</script>
+
+<!-- Service Worker -->
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js");
+}
 </script>
 
 </body>
