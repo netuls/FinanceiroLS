@@ -310,9 +310,9 @@
 
     <div class="filters">
       <label>Período</label>
-      <input type="date" id="dtInicio" value="2025-01-01">
+      <input type="date" id="dtInicio">
       <span style="color:var(--text3);font-size:13px;font-weight:600;">até</span>
-      <input type="date" id="dtFim" value="2025-12-31">
+      <input type="date" id="dtFim">
       <label>Status</label>
       <select id="filtroStatus">
         <option value="">Todos</option>
@@ -484,6 +484,11 @@
   const app  = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db   = getFirestore(app);
+
+  // Datas de filtro inicializadas com hoje
+  const _hoje = new Date().toISOString().split("T")[0];
+  document.getElementById("dtInicio").value = _hoje;
+  document.getElementById("dtFim").value    = _hoje;
 
   window._contas     = [];
   window._categorias = [];
